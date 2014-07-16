@@ -11,18 +11,21 @@
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
 	<script type="text/javascript" src="util.js"></script>
-    <script type="text/javascript" src="euclideanProjection.js"></script>
+    <script type="text/javascript" src="FlatPixelProjection.js"></script>
+    <script type="text/javascript" src="LatLonGraticule.js"></script>
     <script>
 var TILE_SIZE = 256;
 var BASE_IMAGE_HEIGHT = 1240
 var BASE_IMAGE_WIDTH = 1840
 var BASE_IMAGE_ZOOM=4
 var BASE_GENERATED_HEIGHT = 256 * 8;
-var map
 var MAP_DIR = 'xanadu_map'
 
 var PARAM_SPLITTER='&'
 var PARAM_VALUE_SPLITTER='='
+
+// leftmost grid starting at 379x, grid box 7, rightmost grid ending at 1491, grid box 27, 21 boxes width 52.952380952380952380952380952381
+var POINT_DISTANCE = (1491 - 379) / 21;
 
 function getUrlParams() {
     var params = {}
@@ -81,9 +84,9 @@ function latLngToPoint(latLng) {
 var PIXELS_PER_DEGREE = TILE_SIZE / 360;
 var PROJECT_LNG_SCALE = Math.ceil(BASE_IMAGE_WIDTH / TILE_SIZE); // Map is tiled from left, just scale from tile
 var PROJECT_LNG_OFFSET = 90 * 2 * (1 - 1/PROJECT_LNG_SCALE);
-var PROJECT_LAT_SCALE = 8;
+var PROJECT_LAT_SCALE = 4;
 var PROJECT_LAT_OFFSET = 0;
-var projection = new EuclideanProjection(PROJECT_LAT_SCALE, PROJECT_LNG_SCALE, PROJECT_LAT_OFFSET, PROJECT_LNG_OFFSET);
+var projection = new FlatPixelProjection(PROJECT_LAT_SCALE, PROJECT_LNG_SCALE, PROJECT_LAT_OFFSET, PROJECT_LNG_OFFSET);
 
 function CoordMapType(tileSize) {
   this.tileSize = tileSize;
@@ -107,7 +110,7 @@ function displayCoordinates(pnt) {
   lat = lat.toFixed(2);
   var lng = pnt.lng();
   lng = lng.toFixed(2);
-  console.log ("Latitude: " + lat + "  Longitude: " + lng + " worldCoordinate: " + projection.fromLatLngToPoint(new google.maps.LatLng(pnt.lat().toFixed(2), pnt.lng().toFixed(2))));
+  console.log ("Latitude: " + lat + "  Longitude: " + lng + " worldCoordinate: " + projection.fromLatLngToPoint(new google.maps.LatLng(pnt.lat(), pnt.lng())));
 }
 
 function initialize() {
@@ -130,7 +133,8 @@ function initialize() {
   // Insert this overlay map type as the first overlay map type at
   // position 0. Note that all overlay map types appear on top of
   // their parent base map.
-  map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
+  //map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
+  var graticule = new Graticule(map, false);
   kml = new google.maps.KmlLayer(MAP_DIR + '/doc.kml', {preserveViewport: true});
 }
 
