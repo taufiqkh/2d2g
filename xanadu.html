@@ -8,6 +8,22 @@
         margin: 0px;
         padding: 0px
       }
+      .coordinatesBorder {
+        background-color: white;
+        border-style: solid;
+        border-width: 2px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .coordinatesText {
+        font-family: Arial,sans-serif;
+        font-size: 12px;
+        padding-left: 4px;
+        padding-right: 4px;
+        text-align: center;
+        width: 70px;
+        max-width: 70px;
+      }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
 	<script type="text/javascript" src="util.js"></script>
@@ -20,6 +36,8 @@ var BASE_IMAGE_WIDTH = 1840
 var BASE_IMAGE_ZOOM=4
 var BASE_GENERATED_HEIGHT = 256 * 8;
 var MAP_DIR = 'xanadu_map'
+
+var MAP_TYPE_TERRAIN = 'terrain';
 
 var PARAM_SPLITTER='&'
 var PARAM_VALUE_SPLITTER='='
@@ -54,7 +72,7 @@ var wurmTypeOptions = {
   tileSize: new google.maps.Size(TILE_SIZE, TILE_SIZE),
   maxZoom: 6,
   minZoom: 2,
-  name: 'Xanadu'
+  name: 'Terrain'
 };
 
 var wurmMapType = new google.maps.ImageMapType(wurmTypeOptions);
@@ -88,6 +106,7 @@ var PROJECT_LAT_SCALE = 4;
 var PROJECT_LAT_OFFSET = 0;
 var projection = new FlatPixelProjection(PROJECT_LAT_SCALE, PROJECT_LNG_SCALE, PROJECT_LAT_OFFSET, PROJECT_LNG_OFFSET);
 
+// Overlay to show tiles
 function CoordMapType(tileSize) {
   this.tileSize = tileSize;
 }
@@ -113,28 +132,64 @@ function displayCoordinates(pnt) {
   console.log ("Latitude: " + lat + "  Longitude: " + lng + " worldCoordinate: " + projection.fromLatLngToPoint(new google.maps.LatLng(pnt.lat(), pnt.lng())));
 }
 
+/**
+ * Pixel coordinates overlay
+ */
+function PixelCoordinates(coordsDiv) {
+  coordsDiv.className = 'coordinates';
+  coordsDiv.style.padding = '5px';
+  
+  // Set CSS for the control border
+  var coordsUI = document.createElement('div');
+  coordsUI.className = 'coordinatesBorder';
+  coordsUI.title = 'Pixel coordinates - click to copy';
+
+  coordsDiv.appendChild(coordsUI);
+
+  var coordsText = document.createElement('div');
+  coordsText.className = 'coordinatesText';
+  coordsText.innerHTML = '&nbsp;';
+  coordsUI.appendChild(coordsText);
+  this.textDiv = coordsText;
+}
+PixelCoordinates.prototype.setCoordinates = function(latLng) {
+  var pixel = projection.fromLatLngToPoint(new google.maps.LatLng(latLng.lat(), latLng.lng()));
+  this.textDiv.innerHTML = pixel.x + ", " + pixel.y;
+}
+
 function initialize() {
-  var myLatlng = new google.maps.LatLng(0, 0);
+  var myLatlng = new google.maps.LatLng(-60, 0);
   var mapOptions = {
     center: myLatlng,
     zoom: 2,
     streetViewControl: false,
     mapTypeControlOptions: {
-      mapTypeIds: ['xanadu']
+      mapTypeIds: [MAP_TYPE_TERRAIN],
+      style: google.maps.MapTypeControlStyle.DROPDOWN_MENU
     },
     draggableCursor:'crosshair'
   };
   var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
-  map.mapTypes.set('xanadu', wurmMapType);
-  map.setMapTypeId('xanadu');
-  google.maps.event.addListener(map, 'mousemove', function (event) {
-              displayCoordinates(event.latLng);              
-  });
+  map.mapTypes.set(MAP_TYPE_TERRAIN, wurmMapType);
+  map.setMapTypeId(MAP_TYPE_TERRAIN);
+
   // Insert this overlay map type as the first overlay map type at
   // position 0. Note that all overlay map types appear on top of
   // their parent base map.
-  //map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
-  var graticule = new Graticule(map, false);
+  map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
+  
+  // Pixel coordinates display
+  var pixelCoordsDiv = document.createElement('div');
+  var pixelCoords = new PixelCoordinates(pixelCoordsDiv, map);
+  pixelCoordsDiv.index = 1;
+  map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(pixelCoordsDiv);
+
+  google.maps.event.addListener(map, 'mousemove', function (event) {
+              displayCoordinates(event.latLng);
+              pixelCoords.setCoordinates(event.latLng)
+  });
+
+  //var graticule = new Graticule(map, false);
   kml = new google.maps.KmlLayer(MAP_DIR + '/doc.kml', {preserveViewport: true});
 }
 
