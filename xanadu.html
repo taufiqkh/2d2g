@@ -10,13 +10,31 @@
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
-	    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 	<script type="text/javascript" src="util.js"></script>
+    <script type="text/javascript" src="euclideanProjection.js"></script>
     <script>
 var TILE_SIZE = 256;
-var BASE_IMAGE_HEIGHT=1240
-var BASE_IMAGE_WIDTH=1840
+var BASE_IMAGE_HEIGHT = 1240
+var BASE_IMAGE_WIDTH = 1840
 var BASE_IMAGE_ZOOM=4
+var BASE_GENERATED_HEIGHT = 256 * 8;
+var map
+var MAP_DIR = 'xanadu_map'
+
+var PARAM_SPLITTER='&'
+var PARAM_VALUE_SPLITTER='='
+
+function getUrlParams() {
+    var params = {}
+    if (window.location.search.length > 0) {
+        var searchParams = window.location.search.substring(1).split(PARAM_SPLITTER)
+        for (var i = 0; i < searchParams.length; i++) {
+            var nameVal = searchParams[i].split(PARAM_VALUE_SPLITTER, 2);
+            params[nameVal[0]] = (nameVal.length > 1) ? unescape(nameVal[1]) : true;
+        }
+    }
+    return params;
+}
 
 var wurmTypeOptions = {
   getTileUrl: function(coord, zoom) {
@@ -26,7 +44,7 @@ var wurmTypeOptions = {
       }
       var bound = Math.pow(2, zoom);
       
-      return 'xanadu_map' +
+      return MAP_DIR +
           '/' + zoom + '/' + normalizedCoord.x + '/' +
           (bound - normalizedCoord.y - 1) + '.png';
   },
@@ -38,23 +56,82 @@ var wurmTypeOptions = {
 
 var wurmMapType = new google.maps.ImageMapType(wurmTypeOptions);
 
+function bound(value, opt_min, opt_max) {
+  if (opt_min != null) value = Math.max(value, opt_min);
+  if (opt_max != null) value = Math.min(value, opt_max);
+  return value;
+}
+
+function degreesToRadians(deg) {
+  return deg * (Math.PI / 180);
+}
+
+function radiansToDegrees(rad) {
+  return rad / (Math.PI / 180);
+}
+
+function latLngToPoint(latLng) {
+  var worldCoordinate = projection.fromLatLngToPoint(latLng);
+  var pixelCoordinate = new google.maps.Point(
+      worldCoordinate.x * numTiles,
+      worldCoordinate.y * numTiles);
+  return pixelCoordinate;
+}
+
+var PIXELS_PER_DEGREE = TILE_SIZE / 360;
+var PROJECT_LNG_SCALE = Math.ceil(BASE_IMAGE_WIDTH / TILE_SIZE); // Map is tiled from left, just scale from tile
+var PROJECT_LNG_OFFSET = 90 * 2 * (1 - 1/PROJECT_LNG_SCALE);
+var PROJECT_LAT_SCALE = 8;
+var PROJECT_LAT_OFFSET = 0;
+var projection = new EuclideanProjection(PROJECT_LAT_SCALE, PROJECT_LNG_SCALE, PROJECT_LAT_OFFSET, PROJECT_LNG_OFFSET);
+
 function CoordMapType(tileSize) {
   this.tileSize = tileSize;
 }
 
+CoordMapType.prototype.getTile = function(coord, zoom, ownerDocument) {
+  var div = ownerDocument.createElement('div');
+  div.innerHTML = coord;
+  div.style.width = this.tileSize.width + 'px';
+  div.style.height = this.tileSize.height + 'px';
+  div.style.fontSize = '10';
+  div.style.borderStyle = 'solid';
+  div.style.borderWidth = '1px';
+  div.style.borderColor = '#AAAAAA';
+  return div;
+};
+
+function displayCoordinates(pnt) {
+  var coordsLabel = document.getElementById("tdCursor");
+  var lat = pnt.lat();
+  lat = lat.toFixed(2);
+  var lng = pnt.lng();
+  lng = lng.toFixed(2);
+  console.log ("Latitude: " + lat + "  Longitude: " + lng + " worldCoordinate: " + projection.fromLatLngToPoint(new google.maps.LatLng(pnt.lat().toFixed(2), pnt.lng().toFixed(2))));
+}
+
 function initialize() {
-  var myLatlng = new google.maps.LatLng(-60, 0);
+  var myLatlng = new google.maps.LatLng(0, 0);
   var mapOptions = {
     center: myLatlng,
     zoom: 2,
     streetViewControl: false,
     mapTypeControlOptions: {
       mapTypeIds: ['xanadu']
-    }
+    },
+    draggableCursor:'crosshair'
   };
   var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
   map.mapTypes.set('xanadu', wurmMapType);
   map.setMapTypeId('xanadu');
+  google.maps.event.addListener(map, 'mousemove', function (event) {
+              displayCoordinates(event.latLng);              
+  });
+  // Insert this overlay map type as the first overlay map type at
+  // position 0. Note that all overlay map types appear on top of
+  // their parent base map.
+  map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
+  kml = new google.maps.KmlLayer(MAP_DIR + '/doc.kml', {preserveViewport: true});
 }
 
 // Normalizes the coords that tiles repeat to prevent wrapping
@@ -76,7 +153,6 @@ function getNormalizedCoord(coord, zoom) {
     y: y
   };
 }
-
 
 google.maps.event.addDomListener(window, 'load', initialize);
 
