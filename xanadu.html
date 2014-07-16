@@ -154,7 +154,7 @@ function PixelCoordinates(coordsDiv) {
 }
 PixelCoordinates.prototype.setCoordinates = function(latLng) {
   var pixel = projection.fromLatLngToPoint(new google.maps.LatLng(latLng.lat(), latLng.lng()));
-  this.textDiv.innerHTML = pixel.x + ", " + pixel.y;
+  this.textDiv.innerHTML = pixel.x + ", " + (pixel.y + BASE_GENERATED_HEIGHT / 2);
 }
 
 function initialize() {
