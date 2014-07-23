@@ -12,11 +12,16 @@
 // Matthew Shen 2011
 //
 // Reworked some more by Bill Chadwick ...
+// Modified 2014 by Taufiq Hoven, to suit Euclidean grid based on pixel units.
 //
 var Graticule = (function() {
     function _(map, options) {
         // default to decimal intervals
+        var opts = typeof options == 'undefined' ? {} : options;
         this.sex_ = typeof options.sexagesimal == 'undefined' ? false : sexagesimal;
+        // interval in longitude degrees. This is converted to pixels and
+        // applied both latitudinally and longitudinally
+        this.interval = typeof options.interval == 'undefined' ? 6 : interval;
         this.set('container', document.createElement('DIV'));
 
         this.show();
@@ -92,6 +97,9 @@ var Graticule = (function() {
         return 0;
     }
 
+    /**
+     * Return element l[i] such that x <= l[i], otherwise return d if no such element exists.
+     */
     function leThenReturn(x, l, d) {
         for (var i = 0; i < l.length; i += 1) {
             if (x <= l[i]) {

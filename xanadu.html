@@ -8,6 +8,9 @@
         margin: 0px;
         padding: 0px
       }
+      .coordinates {
+        padding: 5px;
+      }
       .coordinatesBorder {
         background-color: white;
         border-style: solid;
@@ -137,7 +140,6 @@ function displayCoordinates(pnt) {
  */
 function PixelCoordinates(coordsDiv) {
   coordsDiv.className = 'coordinates';
-  coordsDiv.style.padding = '5px';
   
   // Set CSS for the control border
   var coordsUI = document.createElement('div');
@@ -158,9 +160,8 @@ PixelCoordinates.prototype.setCoordinates = function(latLng) {
 }
 
 function initialize() {
-  var myLatlng = new google.maps.LatLng(-60, 0);
   var mapOptions = {
-    center: myLatlng,
+    center: projection.fromPointToLatLng(new google.maps.Point(BASE_IMAGE_WIDTH / 2, (BASE_IMAGE_HEIGHT - BASE_GENERATED_HEIGHT) / 2)),
     zoom: 2,
     streetViewControl: false,
     mapTypeControlOptions: {
@@ -176,7 +177,7 @@ function initialize() {
   // Insert this overlay map type as the first overlay map type at
   // position 0. Note that all overlay map types appear on top of
   // their parent base map.
-  map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
+  //map.overlayMapTypes.insertAt(0, new CoordMapType(new google.maps.Size(TILE_SIZE, TILE_SIZE)));
   
   // Pixel coordinates display
   var pixelCoordsDiv = document.createElement('div');
@@ -189,7 +190,7 @@ function initialize() {
               pixelCoords.setCoordinates(event.latLng)
   });
 
-  //var graticule = new Graticule(map, false);
+  var graticule = new Graticule(map, false);
   kml = new google.maps.KmlLayer(MAP_DIR + '/doc.kml', {preserveViewport: true});
 }
 

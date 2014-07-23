@@ -42,6 +42,7 @@ FlatPixelProjection.prototype.fromPointToLatLng = function(point) {
 
         var origin = me.pixelOrigin_;
         var lng = (((point.x - origin.x) / me.pixelsPerLonDegree_) / this.scaleLng) - this.offsetLng;
-        var lat = ((-1 *( point.y - origin.y) / me.pixelsPerLonDegree_) / this.scaleLat) - this.offsetLat;
+        var p = Math.pow(Math.E, point.y / this.scaleLat / this.pixelsPerLonRadian_);
+        var lat = Math.asin((p - 1)/(1 + p)) * 180 / Math.PI;
         return new google.maps.LatLng(lat , lng, true);
 };
