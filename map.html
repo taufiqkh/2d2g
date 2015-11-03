@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html>
   <head>
-    <title>Xanadu Map</title>
+    <title>Wurm Map</title>
     <style>
       html, body, #map-canvas {
         height: 100%;
@@ -38,14 +38,14 @@ var BASE_IMAGE_HEIGHT = 1240
 var BASE_IMAGE_WIDTH = 1840
 var BASE_IMAGE_ZOOM=4
 var BASE_GENERATED_HEIGHT = 256 * 8;
-var MAP_DIR = 'xanadu_map'
+var MAP_DIR = 'map_tiles'
 
 var MAP_TYPE_TERRAIN = 'terrain';
 
 var PARAM_SPLITTER='&'
 var PARAM_VALUE_SPLITTER='='
 
-// leftmost grid starting at 379x, grid box 7, rightmost grid ending at 1491, grid box 27, 21 boxes width 52.952380952380952380952380952381
+// leftmost grid starting at 379x, grid box 7, rightmost grid ending at 1491, grid box 27, 21 boxes width 52.952380952380952380952380952381 pixels
 var POINT_DISTANCE = (1491 - 379) / 21;
 
 function getUrlParams() {
@@ -129,9 +129,9 @@ CoordMapType.prototype.getTile = function(coord, zoom, ownerDocument) {
 function displayCoordinates(pnt) {
   var coordsLabel = document.getElementById("tdCursor");
   var lat = pnt.lat();
-  lat = lat.toFixed(2);
+  //lat = lat.toFixed(2);
   var lng = pnt.lng();
-  lng = lng.toFixed(2);
+  //lng = lng.toFixed(2);
   console.log ("Latitude: " + lat + "  Longitude: " + lng + " worldCoordinate: " + projection.fromLatLngToPoint(new google.maps.LatLng(pnt.lat(), pnt.lng())));
 }
 
@@ -184,13 +184,41 @@ function initialize() {
   var pixelCoords = new PixelCoordinates(pixelCoordsDiv, map);
   pixelCoordsDiv.index = 1;
   map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(pixelCoordsDiv);
+  map.projection = projection;
 
   google.maps.event.addListener(map, 'mousemove', function (event) {
               displayCoordinates(event.latLng);
               pixelCoords.setCoordinates(event.latLng)
   });
 
-  var graticule = new Graticule(map, false);
+  var xLabels = new Array(34);
+  for (var i = 0; i < xLabels.length; i++) {
+      xLabels[i] = i;
+  }
+  var yLabels = [];
+  for (var idx = 'A'.charCodeAt(0), end = 'V'.charCodeAt(0); idx <=end; ++idx){
+    yLabels.push(String.fromCharCode(idx));
+  }
+  yLabels.join();
+  var swBound = projection.addLatPixels(
+        new google.maps.LatLng(
+            -83.27770503961696,
+            -169.27734375 - projection.pixelDistanceToLngDegrees(POINT_DISTANCE)),
+        POINT_DISTANCE);
+  var neBound = projection.addLatPixels(
+        new google.maps.LatLng(
+            23.241346102386135,
+            119.35546875 + projection.pixelDistanceToLngDegrees(POINT_DISTANCE)),
+        POINT_DISTANCE);
+  var graticuleOptions = {
+      sexagesimal: false,
+      interval: projection.pixelDistanceToLngDegrees(POINT_DISTANCE),
+      pointBounds: new google.maps.LatLngBounds(swBound, neBound),
+      xLabels: xLabels,
+      yLabels: yLabels,
+      flatProjection: projection
+  }
+  var graticule = new Graticule(map, graticuleOptions);
   kml = new google.maps.KmlLayer(MAP_DIR + '/doc.kml', {preserveViewport: true});
 }
 
