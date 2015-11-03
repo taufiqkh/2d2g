@@ -13,15 +13,20 @@
 //
 // Reworked some more by Bill Chadwick ...
 // Modified 2014 by Taufiq Hoven, to suit Euclidean grid based on pixel units.
+// TODO: Remove redundant code
 //
 var Graticule = (function() {
     function _(map, options) {
         // default to decimal intervals
         var opts = typeof options == 'undefined' ? {} : options;
-        this.sex_ = typeof options.sexagesimal == 'undefined' ? false : sexagesimal;
+        this.sex_ = typeof options.sexagesimal == 'undefined' ? false : options.sexagesimal;
         // interval in longitude degrees. This is converted to pixels and
         // applied both latitudinally and longitudinally
-        this.interval = typeof options.interval == 'undefined' ? 6 : interval;
+        this.interval = typeof options.interval == 'undefined' ? 6 : options.interval;
+        this.pointBounds = typeof options.pointBounds == 'undefined' ? null : options.pointBounds;
+        this.xLabels = typeof options.xLabels == 'undefined' ? null : options.xLabels;
+        this.yLabels = typeof options.yLabels == 'undefined' ? null : options.yLabels;
+        this.flatProjection = typeof options.flatProjection == 'undefined' ? map.getProjection() : options.flatProjection;
         this.set('container', document.createElement('DIV'));
 
         this.show();
@@ -214,6 +219,12 @@ var Graticule = (function() {
         return false;
     }
 
+    function pointLngInterval(projection, degInterval) {
+        var from = projection.fromLatLngToPoint(new google.maps.LatLng(0, 0));
+        var to = projection.fromLatLngToPoint(new google.maps.LatLng(0, degInterval));
+        return to.x - from.x;
+    }
+    
     // Redraw the graticule based on the current projection and zoom level
     _.prototype.draw = function() {
 
@@ -246,6 +257,8 @@ var Graticule = (function() {
         var mins = mins_list(this);
         var dLat = gridInterval(t - b, mins);
         var dLng = gridInterval(r > l ? r - l : ((180 - l) + (r + 180)), mins);
+        var mapProjection = this.flatProjection;
+        var gridPixels = pointLngInterval(mapProjection, this.interval);
 
         // round iteration limits to the computed grid interval
         l = Math.floor(l / dLng) * dLng;
@@ -258,35 +271,56 @@ var Graticule = (function() {
         // lngs
         var crosslng = l + 2 * dLng;
         // labels on second column to avoid peripheral controls
-        var y = latLngToPixel(this, b + 2 * dLat, l).y + 2;
+        var y = latLngToPixel(this, sw.lat(), l).y - this.interval * 2;
 
         // lo<r to skip printing 180/-180
-        for (var lo = l; lo < r; lo += dLng) {
-            if (lo > 180.0) {
-                r -= 360.0;
-                lo -= 360.0;
-            }
+        var labelIdx = 0;
+        var count = 0;
+        for (var lo = this.pointBounds ? this.pointBounds.getSouthWest().lng() : l;
+                lo < r && (!this.xLabels || labelIdx < this.xLabels.length + 1); lo += this.interval) {
             var px = latLngToPixel(this, b, lo).x;
             this.addDiv(meridian(px, color));
 
             var atcross = eqE(lo, crosslng);
-            this.addDiv(makeLabel(color,
-        px + (atcross ? 17 : 3), y - (atcross ? 3 : 0),
-        (this.sex_ ? this.decToLonSex(lo) : lo.toFixed(gridPrecision(dLng)))));
+            if (!this.xLabels || labelIdx < this.xLabels.length) {
+                this.addDiv(makeLabel(color,
+                    px + (atcross ? 17 : 3), y - (atcross ? 3 : 0),
+                    this.xLabels ? this.xLabels[labelIdx]: (this.sex_ ? this.decToLonSex(lo) : lo.toFixed(gridPrecision(dLng)))));
+            }
+            labelIdx++;
+            count++;
         }
 
         // lats
         var crosslat = b + 2 * dLat;
         // labels on second row to avoid controls
         var x = latLngToPixel(this, b, l + 2 * dLng).x + 3;
+        
+        if (this.pointBounds) {
+            labelIdx = 0;
+            var gridLatLng = this.pointBounds.getNorthEast();
+            var x = mapProjection.fromLatLngToPoint(new google.maps.LatLng(b, gridLatLng.lng())).x / 1.5;
+            //var x = latLngToPixel(this, b, l + 2 * dLng).x + 3;
+            console.log("x = " + x);
+            console.log("lng = " + gridLatLng.lng());
+            for (var gridPoint = mapProjection.fromLatLngToPoint(gridLatLng); labelIdx < this.yLabels.length + 1; labelIdx++) {
+                this.addDiv(parallel(latLngToPixel(this, gridLatLng.lat(), l).y, color));
+                if (labelIdx < this.yLabels.length) {
+                    var labelLatLng = mapProjection.fromPointToLatLng(new google.maps.Point(gridPoint.x, gridPoint.y - gridPixels / 2));
+                    this.addDiv(makeLabel(color, x, latLngToPixel(this, labelLatLng.lat(), l).y, this.yLabels[labelIdx]));
+                }
+                gridPoint.y -= gridPixels;
+                gridLatLng = mapProjection.fromPointToLatLng(gridPoint);
+            }
+        } else {
+            for (; b <= t; b += dLat) {
+                var py = latLngToPixel(this, b, l).y;
+                this.addDiv(parallel(py, color));
 
-        for (; b <= t; b += dLat) {
-            var py = latLngToPixel(this, b, l).y;
-            this.addDiv(parallel(py, color));
-
-            this.addDiv(makeLabel(color,
-        x, py + (eqE(b, crosslat) ? 7 : 2),
-        (this.sex_ ? this.decToLatSex(b) : b.toFixed(gridPrecision(dLat)))));
+                this.addDiv(makeLabel(color,
+            x, py + (eqE(b, crosslat) ? 7 : 2),
+            (this.sex_ ? this.decToLatSex(b) : b.toFixed(gridPrecision(dLat)))));
+            }
         }
     };
 
